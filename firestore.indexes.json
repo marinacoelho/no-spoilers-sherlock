@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "chunks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "book_id", "order": "ASCENDING" },
+        { "fieldPath": "chapter_order", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
