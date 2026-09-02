@@ -1,36 +1,50 @@
 package com.example.nospoilerssherlock.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.nospoilerssherlock.data.models.ChatMessage
 import com.example.nospoilerssherlock.data.models.MessageSender
 import com.example.nospoilerssherlock.theme.*
-import kotlinx.coroutines.launch
+import com.mikepenz.markdown.m3.Markdown
+import com.mikepenz.markdown.m3.markdownColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,9 +53,9 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var inputText by remember { mutableStateOf("") }
-    var showBookDropdown by remember { mutableStateOf(false) }
+    var showBookBottomSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
@@ -55,173 +69,350 @@ fun ChatScreen(
                 title = {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🕵️ No Spoilers, Sherlock", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = VictorianGold)
+                            Text(
+                                text = "🕵️ No Spoilers, Sherlock",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
-                        Text(
-                            text = uiState.selectedBook?.title ?: "Select Book",
-                            fontSize = 12.sp,
-                            color = ParchmentCream.copy(alpha = 0.7f)
-                        )
+                        // Clickable Book Selector Chip in Top Bar
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { showBookBottomSheet = true }
+                                .padding(vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                                contentDescription = null,
+                                modifier = Modifier.size(13.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = uiState.selectedBook?.title ?: "Select Book",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 },
                 actions = {
-                    // Book Selection Dropdown
-                    Box {
-                        IconButton(onClick = { showBookDropdown = true }) {
-                            Icon(Icons.Default.MenuBook, contentDescription = "Select Book", tint = VictorianGold)
-                        }
-                        DropdownMenu(
-                            expanded = showBookDropdown,
-                            onDismissRequest = { showBookDropdown = false }
-                        ) {
-                            uiState.books.forEach { book ->
-                                DropdownMenuItem(
-                                    text = { Text(book.title) },
-                                    onClick = {
-                                        viewModel.selectBook(book)
-                                        showBookDropdown = false
-                                    }
-                                )
-                            }
-                        }
-                    }
+                    // Modern AI Status Pill in Top App Bar
+                    AiStatusBadge(onDeviceStatus = uiState.onDeviceStatus)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DetectiveNavyMedium
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                 )
             )
         },
-        containerColor = DetectiveNavyDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Spoiler Guard Status Banner
-            Surface(
-                color = DetectiveNavyMedium,
-                modifier = Modifier.fillMaxWidth()
+            // Chat Messages / Welcome Hero
+            Box(modifier = Modifier.weight(1f)) {
+                if (uiState.messages.isEmpty()) {
+                    EmptyChatHero(
+                        selectedBookTitle = uiState.selectedBook?.title ?: "Sherlock Holmes",
+                        onPromptSelected = { inputText = it }
+                    )
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        items(uiState.messages) { message ->
+                            ModernMessageBubble(message = message)
+                        }
+                    }
+                }
+            }
+
+            // Sherlock Loading / Investigating Status
+            AnimatedVisibility(
+                visible = uiState.isLoading,
+                enter = fadeIn() + slideInVertically { it / 2 },
+                exit = fadeOut() + slideOutVertically { it / 2 }
             ) {
-                Row(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Lock,
-                        contentDescription = "Spoiler Lock",
-                        tint = VictorianGold,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Spoiler Guard Active • Chapter context automatically detected from prompt",
-                        fontSize = 12.sp,
-                        color = ParchmentCream.copy(alpha = 0.8f)
-                    )
-                }
+                SherlockInvestigatingIndicator(
+                    statusMessage = uiState.statusMessage ?: "Sherlock is deducing clues..."
+                )
             }
 
-            // Chat Messages List
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(uiState.messages) { message ->
-                    MessageBubble(message = message)
-                }
-            }
+            // Quick Question Suggestion Chips
+            QuickPromptSuggestions(
+                selectedBookId = uiState.selectedBook?.id,
+                onPromptClicked = { inputText = it }
+            )
 
-            // Status indicator when processing
-            AnimatedVisibility(visible = uiState.isLoading) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        color = VictorianGold,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = uiState.statusMessage ?: "Sherlock is investigating...",
-                        fontSize = 12.sp,
-                        color = VictorianGold
-                    )
+            // Material 3 Input Bar with Safe Insets
+            ChatInputBar(
+                text = inputText,
+                onTextChange = { inputText = it },
+                onSend = {
+                    if (inputText.isNotBlank()) {
+                        viewModel.sendMessage(inputText)
+                        inputText = ""
+                    }
                 }
-            }
+            )
+        }
+    }
 
-            // Quick Prompt Suggestions
-            Row(
+    // Modern Material 3 Book Selector Bottom Sheet
+    if (showBookBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showBookBottomSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp)
             ) {
-                listOf("In Chapter 3, who died?", "In Chapter 5, what clue was found?", "Who is Lestrade?").forEach { chipText ->
-                    FilterChip(
-                        selected = false,
-                        onClick = { inputText = chipText },
-                        label = { Text(chipText, fontSize = 11.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = DetectiveNavyMedium,
-                            labelColor = ParchmentCream
-                        )
+                Text(
+                    text = "Select Novel",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Choose the Sherlock Holmes mystery you are currently reading",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+                )
+
+                uiState.books.forEach { book ->
+                    val isSelected = book.id == uiState.selectedBook?.id
+                    Surface(
+                        onClick = {
+                            viewModel.selectBook(book)
+                            showBookBottomSheet = false
+                        },
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        shape = CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                                    contentDescription = null,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = book.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "${book.author} • ${book.totalChapters} Chapters",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Modern pill badge indicating whether On-Device AI (Gemini Nano) or Cloud AI is active.
+ */
+@Composable
+private fun AiStatusBadge(onDeviceStatus: String?) {
+    val isReady = onDeviceStatus?.contains("Ready", ignoreCase = true) == true
+    val isDownloading = onDeviceStatus?.contains("Downloading", ignoreCase = true) == true
+
+    Surface(
+        shape = CircleShape,
+        color = when {
+            isReady -> MaterialTheme.colorScheme.tertiaryContainer
+            isDownloading -> MaterialTheme.colorScheme.secondaryContainer
+            else -> MaterialTheme.colorScheme.surfaceContainerHighest
+        },
+        modifier = Modifier.padding(end = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            when {
+                isReady -> {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = "On-Device",
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "On-Device",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                isDownloading -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(10.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Downloading...",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                else -> {
+                    Icon(
+                        imageVector = Icons.Default.Cloud,
+                        contentDescription = "Cloud AI",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Cloud AI",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
+        }
+    }
+}
 
-            // Input Bar
-            Surface(
-                color = DetectiveNavyMedium,
-                tonalElevation = 4.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(12.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+/**
+ * Empty chat welcome hero showcasing Material 3 design and starter questions.
+ */
+@Composable
+private fun EmptyChatHero(
+    selectedBookTitle: String,
+    onPromptSelected: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Psychology,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(40.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "The Game is Afoot",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Ask questions as you read through $selectedBookTitle. Sherlock guarantees zero spoilers for upcoming chapters!",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Starter Cards
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            listOf(
+                "In Chapter 3, who was found dead at Lauriston Gardens?",
+                "In Chapter 5, what clue did the wedding ring provide?",
+                "Who is Inspector Lestrade, and what is his theory?"
+            ).forEach { prompt ->
+                Surface(
+                    onClick = { onPromptSelected(prompt) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    OutlinedTextField(
-                        value = inputText,
-                        onValueChange = { inputText = it },
-                        placeholder = { Text("Ask about your book (e.g. 'In chapter 3...')", fontSize = 14.sp, color = ParchmentCream.copy(alpha = 0.5f)) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = DetectiveNavyDark,
-                            unfocusedContainerColor = DetectiveNavyDark,
-                            focusedBorderColor = VictorianGold,
-                            unfocusedBorderColor = DetectiveNavyLight,
-                            focusedTextColor = ParchmentCream,
-                            unfocusedTextColor = ParchmentCream
-                        ),
-                        maxLines = 3
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(
-                        onClick = {
-                            if (inputText.isNotBlank()) {
-                                viewModel.sendMessage(inputText)
-                                inputText = ""
-                            }
-                        },
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(VictorianGold, shape = CircleShape)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
-                            tint = DetectiveNavyDark
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = prompt,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -230,91 +421,240 @@ fun ChatScreen(
     }
 }
 
+/**
+ * Modern Material 3 Message Bubble with Markdown rendering.
+ */
 @Composable
-fun MessageBubble(message: ChatMessage) {
+fun ModernMessageBubble(message: ChatMessage) {
     val isUser = message.sender == MessageSender.USER
     val isSystem = message.sender == MessageSender.SYSTEM
 
-    val alignment = when {
-        isUser -> Alignment.End
-        else -> Alignment.Start
-    }
+    val alignment = if (isUser) Alignment.End else Alignment.Start
 
     val bubbleColor = when {
-        isUser -> DetectiveNavyLight
-        isSystem -> DetectiveNavyMedium
-        else -> DetectiveNavyMedium
+        isUser -> MaterialTheme.colorScheme.primaryContainer
+        isSystem -> MaterialTheme.colorScheme.surfaceContainer
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh
     }
 
-    val textColor = ParchmentCream
+    val bubbleShape = RoundedCornerShape(
+        topStart = 20.dp,
+        topEnd = 20.dp,
+        bottomStart = if (isUser) 20.dp else 4.dp,
+        bottomEnd = if (isUser) 4.dp else 20.dp
+    )
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = alignment
     ) {
-        if (message.extractedChapter != null) {
-            Surface(
-                color = VictorianGold.copy(alpha = 0.15f),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.padding(bottom = 4.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Sherlock Avatar for AI messages
+            if (!isUser) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Default.Lock,
-                        contentDescription = "Chapter Bound",
-                        tint = VictorianGold,
-                        modifier = Modifier.size(12.dp)
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = "Sherlock AI",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Chapter ${message.extractedChapter} Context",
-                        fontSize = 10.sp,
-                        color = VictorianGold,
-                        fontWeight = FontWeight.Bold
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+
+            // Message Body Container with Markdown
+            Surface(
+                color = bubbleColor,
+                shape = bubbleShape,
+                modifier = Modifier.widthIn(max = 310.dp)
+            ) {
+                Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    Markdown(
+                        content = message.text,
+                        colors = markdownColor(
+                            text = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
         }
+    }
+}
 
+/**
+ * Animated Investigating / Deducing status indicator.
+ */
+@Composable
+private fun SherlockInvestigatingIndicator(statusMessage: String) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Surface(
-            color = bubbleColor,
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isUser) 16.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 16.dp
-            ),
-            modifier = Modifier.widthIn(max = 300.dp)
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = CircleShape
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = message.text,
-                    color = textColor,
-                    fontSize = 14.sp
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 2.dp
                 )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = statusMessage,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.alpha(alpha)
+                )
+            }
+        }
+    }
+}
 
-                if (message.citedChapters.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        message.citedChapters.forEach { chNum ->
-                            Surface(
-                                color = CitationGreen.copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Text(
-                                    text = "Ch $chNum",
-                                    fontSize = 9.sp,
-                                    color = CitationGreen,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
+/**
+ * Horizontal row of Material 3 SuggestionChips.
+ */
+@Composable
+private fun QuickPromptSuggestions(
+    selectedBookId: String?,
+    onPromptClicked: (String) -> Unit
+) {
+    val prompts = when (selectedBookId) {
+        "sign_of_the_four" -> listOf(
+            "In Chapter 2, who is Miss Morstan?",
+            "In Chapter 4, who was found dead?",
+            "What clue was left behind?"
+        )
+        else -> listOf(
+            "In Chapter 3, who died?",
+            "In Chapter 5, what clue was found?",
+            "Who is Inspector Lestrade?"
+        )
+    }
+
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(prompts) { chipText ->
+            SuggestionChip(
+                onClick = { onPromptClicked(chipText) },
+                label = { Text(chipText, style = MaterialTheme.typography.labelMedium) },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                colors = SuggestionChipDefaults.suggestionChipColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    labelColor = MaterialTheme.colorScheme.onSurface
+                ),
+                border = SuggestionChipDefaults.suggestionChipBorder(
+                    enabled = true,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant
+                )
+            )
+        }
+    }
+}
+
+/**
+ * Docked Material 3 Chat Input Bar with rounded shape and clear action buttons.
+ */
+@Composable
+private fun ChatInputBar(
+    text: String,
+    onTextChange: (String) -> Unit,
+    onSend: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 6.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .imePadding()
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = text,
+                onValueChange = onTextChange,
+                placeholder = {
+                    Text(
+                        text = "Ask Sherlock (e.g. 'In chapter 3...')",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(26.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+                ),
+                maxLines = 3
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            FilledIconButton(
+                onClick = onSend,
+                enabled = text.isNotBlank(),
+                modifier = Modifier.size(48.dp),
+                colors = IconButtonDefaults.filledIconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    contentDescription = "Send",
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

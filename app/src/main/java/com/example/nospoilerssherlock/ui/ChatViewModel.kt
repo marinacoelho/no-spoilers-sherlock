@@ -8,6 +8,8 @@ import com.example.nospoilerssherlock.data.SpoilerGuardManager
 import com.example.nospoilerssherlock.data.models.Book
 import com.example.nospoilerssherlock.data.models.ChatMessage
 import com.example.nospoilerssherlock.data.models.MessageSender
+import com.google.firebase.ai.OnDeviceModelStatus
+import com.google.firebase.ai.type.PublicPreviewAPI
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +22,8 @@ data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     val isLoading: Boolean = false,
     val lastDetectedChapter: Int? = null,
-    val statusMessage: String? = null
+    val statusMessage: String? = null,
+    val onDeviceStatus: String? = null
 )
 
 class ChatViewModel(
@@ -59,8 +62,21 @@ class ChatViewModel(
                 messages = listOf(welcomeMessage),
                 isLoading = false
             )
+
+            // Check if user has on-device AI downloaded and installed.
+            // If the device has the option to download an on-device model, download through Firebase AI Logic.
+            @OptIn(PublicPreviewAPI::class)
+            aiService.checkAndDownloadOnDeviceModel { status ->
+                val statusText = when (status) {
+                    OnDeviceModelStatus.AVAILABLE -> "On-Device AI Ready"
+                    OnDeviceModelStatus.DOWNLOADING, OnDeviceModelStatus.DOWNLOADABLE -> "Downloading On-Device AI..."
+                    else -> null
+                }
+                _uiState.value = _uiState.value.copy(onDeviceStatus = statusText)
+            }
         }
     }
+
 
     fun selectBook(book: Book) {
         _uiState.value = _uiState.value.copy(selectedBook = book)

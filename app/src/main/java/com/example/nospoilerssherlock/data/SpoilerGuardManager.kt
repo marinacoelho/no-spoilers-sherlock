@@ -27,7 +27,7 @@ object SpoilerGuardManager {
     }
 
     /**
-     * Constructs system guardrail prompt restricting LLM output strictly up to [maxChapter].
+     * Constructs system guardrail prompt restricting LLM output strictly up to [targetChapter].
      */
     fun buildSpoilerGuardrailPrompt(
         bookTitle: String,
@@ -38,29 +38,32 @@ object SpoilerGuardManager {
         val contextText = if (retrievedChunks.isEmpty()) {
             "No prior chapter excerpts found."
         } else {
-            retrievedChunks.joinToString("\n\n") { chunk ->
-                "[Book: $bookTitle | Chapter ${chunk.chapterOrder}]: ${chunk.content}"
+            retrievedChunks.joinToString("\n") { chunk ->
+                val cleanContent = chunk.content
+                    .replace(Regex("""^Summary of Chapter \d+ \([^)]+\):\s*"""), "")
+                    .trim()
+                "- Chapter ${chunk.chapterOrder}: $cleanContent"
             }
         }
 
         return """
             SYSTEM INSTRUCTIONS:
-            You are "No Spoilers, Sherlock", an intelligent AI reader assistant for book series.
+            You are "No Spoilers, Sherlock", an intelligent AI reader assistant.
+            Provide a concise, direct answer to the user's question using ONLY events known up to CHAPTER $targetChapter of "$bookTitle".
+            Do NOT list, recite, or repeat the chapters. Answer only the specific question asked in 1-3 sentences.
             
             STRICT SPOILER GUARDBOUND:
-            - The reader is inquiring about events up to CHAPTER $targetChapter of "$bookTitle".
             - You MUST ONLY use information from Chapters 1 through $targetChapter.
             - ABSOLUTELY DO NOT reveal, hint at, extrapolate, or mention any plot twists, character deaths, murderer identities, or events taking place AFTER Chapter $targetChapter.
-            - If the user's question asks about something that is only revealed in Chapter ${targetChapter + 1} or later, respond politely with:
-              "🕵️ Spoiler Alert! That detail has not been revealed yet up to Chapter $targetChapter. Keep reading to find out!"
-            
-            PROVIDED CONTEXT (Chapters 1 to $targetChapter):
+            - If the user's question asks about something not yet revealed up to Chapter $targetChapter, respond politely without spoiling future chapters.
+
+            Known events (Chapters 1-$targetChapter):
             $contextText
-            
+
             USER QUESTION:
             "$userQuery"
-            
-            ANSWER (Remember: ZERO SPOILERS beyond Chapter $targetChapter!):
+
+            Sherlock's Direct Answer (ZERO SPOILERS beyond Chapter $targetChapter! Do not list chapters):
         """.trimIndent()
     }
 }

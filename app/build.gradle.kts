@@ -10,7 +10,7 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "com.example.nospoilerssherlock"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -55,7 +55,12 @@ dependencies {
   // Firebase
   implementation(libs.firebase.firestore)
   implementation(libs.firebase.ai)
-    implementation(libs.firebase.appcheck.debug)
+  implementation(libs.firebase.ai.ondevice)
+  implementation(libs.firebase.appcheck.debug)
+
+  // Markdown renderer for Material 3 Compose
+  implementation(libs.markdown.renderer.m3)
+
 
   // Core Android dependencies
   implementation(libs.androidx.core.ktx)

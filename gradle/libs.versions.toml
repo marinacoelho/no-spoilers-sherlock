@@ -15,6 +15,9 @@ nav3Core = "1.0.1"
 lifecycleViewmodelNav3 = "2.10.0"
 googleServices = "4.4.2"
 firebaseBom = "34.18.0"
+firebaseAiOndevice = "16.0.0-beta05"
+markdownRenderer = "0.41.0"
+
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
@@ -44,6 +47,9 @@ firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "fir
 
 firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 firebase-ai = { module = "com.google.firebase:firebase-ai" }
+firebase-ai-ondevice = { module = "com.google.firebase:firebase-ai-ondevice", version.ref = "firebaseAiOndevice" }
+markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
+
 
 
 
