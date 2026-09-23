@@ -109,9 +109,7 @@ class ChatViewModel(
 
         viewModelScope.launch {
             try {
-                // Query Firestore for chunks up to extracted chapter
                 val allowedChunks = firestoreRepository.getSpoilerBoundedChunks(activeBook.id, extractedChapter)
-                val fallbackContextText = allowedChunks.joinToString("\n") { it.content }
 
                 val fullPrompt = SpoilerGuardManager.buildSpoilerGuardrailPrompt(
                     bookTitle = activeBook.title,
@@ -131,15 +129,26 @@ class ChatViewModel(
                     messages = _uiState.value.messages + initialAiMessage
                 )
 
-                aiService.generateContentStream(fullPrompt, extractedChapter, fallbackContextText)
-                    .collect { partialText ->
-                        val currentList = _uiState.value.messages.toMutableList()
-                        val lastIdx = currentList.lastIndex
-                        if (lastIdx >= 0 && currentList[lastIdx].sender == MessageSender.AI) {
-                            currentList[lastIdx] = currentList[lastIdx].copy(text = partialText)
-                            _uiState.value = _uiState.value.copy(messages = currentList)
-                        }
-                    }
+                val noSpoilerAnswer = ChatMessage(
+                    sender = MessageSender.AI,
+                    text = aiService.noSpoilerAnswer(fullPrompt),
+                    extractedChapter = extractedChapter,
+                    citedChapters = allowedChunks.map { it.chapterOrder }.distinct()
+                )
+
+                _uiState.value = _uiState.value.copy(
+                    messages = _uiState.value.messages + noSpoilerAnswer
+                )
+
+//                aiService.generateContentStream(fullPrompt)
+//                    .collect { partialText ->
+//                        val currentList = _uiState.value.messages.toMutableList()
+//                        val lastIdx = currentList.lastIndex
+//                        if (lastIdx >= 0 && currentList[lastIdx].sender == MessageSender.AI) {
+//                            currentList[lastIdx] = currentList[lastIdx].copy(text = partialText)
+//                            _uiState.value = _uiState.value.copy(messages = currentList)
+//                        }
+//                    }
             } catch (e: Exception) {
                 val errorMessage = ChatMessage(
                     sender = MessageSender.SYSTEM,
