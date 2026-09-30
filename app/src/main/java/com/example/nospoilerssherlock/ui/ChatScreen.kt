@@ -1,5 +1,6 @@
 package com.example.nospoilerssherlock.ui
 
+import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -10,7 +11,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import android.graphics.Bitmap
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -48,24 +48,26 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.nospoilerssherlock.data.models.ChatMessage
 import com.example.nospoilerssherlock.data.models.MessageSender
-import com.example.nospoilerssherlock.theme.*
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    viewModel: ChatViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    viewModel: ChatViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var inputText by remember { mutableStateOf("") }
@@ -73,6 +75,7 @@ fun ChatScreen(
     var previewImage by remember { mutableStateOf<Pair<Bitmap, String?>?>(null) }
     val sheetState = rememberModalBottomSheetState()
     val listState = rememberLazyListState()
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
@@ -81,55 +84,73 @@ fun ChatScreen(
     }
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "🕵️ No Spoilers, Sherlock",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        // Clickable Book Selector Chip in Top Bar
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = 12.dp)
+                    ) {
+                        Text(
+                            text = "No Spoilers, Sherlock",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { showBookBottomSheet = true }
-                                .padding(vertical = 2.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.MenuBook,
-                                contentDescription = null,
-                                modifier = Modifier.size(13.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            FilterChip(
+                                selected = true,
+                                onClick = { showBookBottomSheet = true },
+                                label = {
+                                    Text(
+                                        text = uiState.selectedBook?.title ?: "Select Book",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                },
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                },
+                                border = null,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    selectedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    selectedTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                modifier = Modifier.height(28.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = uiState.selectedBook?.title ?: "Select Book",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+
+                            AiStatusBadge(onDeviceStatus = uiState.onDeviceStatus)
                         }
                     }
                 },
-                actions = {
-                    // Modern AI Status Pill in Top App Bar
-                    AiStatusBadge(onDeviceStatus = uiState.onDeviceStatus)
-                },
+                actions = {},
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                )
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                scrollBehavior = scrollBehavior
             )
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -137,9 +158,8 @@ fun ChatScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(top = paddingValues.calculateTopPadding())
         ) {
-            // Chat Messages / Welcome Hero
             Box(modifier = Modifier.weight(1f)) {
                 if (uiState.messages.isEmpty()) {
                     EmptyChatHero(
@@ -154,22 +174,27 @@ fun ChatScreen(
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        items(uiState.messages) { message ->
-                            ModernMessageBubble(
-                                message = message,
-                                onVisualizeScene = { query, chapter ->
-                                    viewModel.visualizeScene(query, chapter)
-                                },
-                                onImageClick = { bitmap, caption ->
-                                    previewImage = Pair(bitmap, caption)
-                                }
-                            )
+                        items(uiState.messages, key = { it.id }) { message ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .animateItem()
+                            ) {
+                                ModernMessageBubble(
+                                    message = message,
+                                    onVisualizeScene = { query, chapter ->
+                                        viewModel.visualizeScene(query, chapter)
+                                    },
+                                    onImageClick = { bitmap, caption ->
+                                        previewImage = Pair(bitmap, caption)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // Sherlock Loading / Investigating Status
             AnimatedVisibility(
                 visible = uiState.isLoading,
                 enter = fadeIn() + slideInVertically { it / 2 },
@@ -180,13 +205,11 @@ fun ChatScreen(
                 )
             }
 
-            // Quick Question Suggestion Chips
             QuickPromptSuggestions(
                 selectedBookId = uiState.selectedBook?.id,
                 onPromptClicked = { inputText = it }
             )
 
-            // Material 3 Input Bar with Safe Insets
             ChatInputBar(
                 text = inputText,
                 onTextChange = { inputText = it },
@@ -200,79 +223,66 @@ fun ChatScreen(
         }
     }
 
-    // Modern Material 3 Book Selector Bottom Sheet
     if (showBookBottomSheet) {
         ModalBottomSheet(
             onDismissRequest = { showBookBottomSheet = false },
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
                     .padding(bottom = 32.dp)
             ) {
                 Text(
                     text = "Select Novel",
                     style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 24.dp)
                 )
                 Text(
                     text = "Choose the Sherlock Holmes mystery you are currently reading",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 uiState.books.forEach { book ->
                     val isSelected = book.id == uiState.selectedBook?.id
-                    Surface(
-                        onClick = {
-                            viewModel.selectBook(book)
-                            showBookBottomSheet = false
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = book.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         },
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
-                                        shape = CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
+                        supportingContent = {
+                            Text(
+                                text = "${book.author} • ${book.totalChapters} Chapters",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        },
+                        leadingContent = {
+                            Surface(
+                                shape = CircleShape,
+                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                modifier = Modifier.size(40.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
-                                    contentDescription = null,
-                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                                        contentDescription = null,
+                                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = book.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    text = "${book.author} • ${book.totalChapters} Chapters",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                        },
+                        trailingContent = {
                             if (isSelected) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
@@ -280,14 +290,20 @@ fun ChatScreen(
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }
+                        },
+                        colors = ListItemDefaults.colors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent
+                        ),
+                        modifier = Modifier.clickable {
+                            viewModel.selectBook(book)
+                            showBookBottomSheet = false
                         }
-                    }
+                    )
                 }
             }
         }
     }
 
-    // Full-screen interactive pinch-to-zoom Lightbox dialog
     previewImage?.let { (bitmap, caption) ->
         ZoomableImageDialog(
             bitmap = bitmap,
@@ -297,9 +313,6 @@ fun ChatScreen(
     }
 }
 
-/**
- * Modern pill badge indicating whether On-Device AI (Gemini Nano) or Cloud AI is active.
- */
 @Composable
 private fun AiStatusBadge(onDeviceStatus: String?) {
     val isReady = onDeviceStatus?.contains("Ready", ignoreCase = true) == true
@@ -311,8 +324,7 @@ private fun AiStatusBadge(onDeviceStatus: String?) {
             isReady -> MaterialTheme.colorScheme.tertiaryContainer
             isDownloading -> MaterialTheme.colorScheme.secondaryContainer
             else -> MaterialTheme.colorScheme.surfaceContainerHighest
-        },
-        modifier = Modifier.padding(end = 8.dp)
+        }
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -368,9 +380,6 @@ private fun AiStatusBadge(onDeviceStatus: String?) {
     }
 }
 
-/**
- * Empty chat welcome hero showcasing Material 3 design and starter questions.
- */
 @Composable
 private fun EmptyChatHero(
     selectedBookTitle: String,
@@ -383,27 +392,25 @@ private fun EmptyChatHero(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(72.dp)
-                .background(
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
+        Surface(
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.size(72.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Psychology,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(40.dp)
-            )
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.Psychology,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
         }
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "The Game is Afoot",
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -411,12 +418,11 @@ private fun EmptyChatHero(
             text = "Ask questions as you read through $selectedBookTitle. Sherlock guarantees zero spoilers for upcoming chapters!",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Starter Cards
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()
@@ -427,10 +433,13 @@ private fun EmptyChatHero(
                 "In Chapter 5, what clue did the wedding ring provide?",
                 "Who is Inspector Lestrade, and what is his theory?"
             ).forEach { prompt ->
-                Surface(
+                OutlinedCard(
                     onClick = { onPromptSelected(prompt) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shape = MaterialTheme.shapes.medium,
+                    colors = CardDefaults.outlinedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -456,12 +465,10 @@ private fun EmptyChatHero(
     }
 }
 
-/**
- * Modern Material 3 Message Bubble with Markdown and Nano Banana Scene Illustration rendering.
- */
 @Composable
 fun ModernMessageBubble(
     message: ChatMessage,
+    modifier: Modifier = Modifier,
     onVisualizeScene: ((String, Int?) -> Unit)? = null,
     onImageClick: ((Bitmap, String?) -> Unit)? = null
 ) {
@@ -484,7 +491,7 @@ fun ModernMessageBubble(
     )
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = alignment
     ) {
         Row(
@@ -492,35 +499,30 @@ fun ModernMessageBubble(
             horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Sherlock Avatar for AI messages
             if (!isUser) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    modifier = Modifier.size(32.dp)
                 ) {
-                    Icon(
-                        imageVector = if (message.isSceneVisualization) Icons.Default.Palette else Icons.Default.AutoAwesome,
-                        contentDescription = "Sherlock AI",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (message.isSceneVisualization) Icons.Default.Palette else Icons.Default.AutoAwesome,
+                            contentDescription = "Sherlock AI",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.width(8.dp))
             }
 
-            // Message Body Container with Markdown and Image
             Surface(
                 color = bubbleColor,
                 shape = bubbleShape,
-                modifier = Modifier.widthIn(max = 320.dp)
+                modifier = Modifier.fillMaxWidth(0.85f)
             ) {
                 Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                    // Generated Scene Illustration (Nano Banana) with Tap-to-Zoom
                     if (message.imageBitmap != null) {
                         Surface(
                             shape = RoundedCornerShape(12.dp),
@@ -542,7 +544,6 @@ fun ModernMessageBubble(
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
                                     )
-                                    // Zoom Examine Badge
                                     Surface(
                                         color = Color.Black.copy(alpha = 0.65f),
                                         shape = RoundedCornerShape(8.dp),
@@ -608,7 +609,6 @@ fun ModernMessageBubble(
             }
         }
 
-        // Action Pill: "Visualize Scene" for Sherlock's textual deductions
         if (!isUser && !message.isSceneVisualization && message.text != "..." && message.extractedChapter != null) {
             Spacer(modifier = Modifier.height(4.dp))
             Surface(
@@ -644,9 +644,6 @@ fun ModernMessageBubble(
     }
 }
 
-/**
- * Animated Investigating / Deducing status indicator.
- */
 @Composable
 private fun SherlockInvestigatingIndicator(statusMessage: String) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -691,9 +688,6 @@ private fun SherlockInvestigatingIndicator(statusMessage: String) {
     }
 }
 
-/**
- * Horizontal row of Material 3 SuggestionChips.
- */
 @Composable
 private fun QuickPromptSuggestions(
     selectedBookId: String?,
@@ -745,9 +739,6 @@ private fun QuickPromptSuggestions(
     }
 }
 
-/**
- * Docked Material 3 Chat Input Bar with rounded shape and clear action buttons.
- */
 @Composable
 private fun ChatInputBar(
     text: String,
@@ -759,8 +750,7 @@ private fun ChatInputBar(
         tonalElevation = 6.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
-            .imePadding()
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
     ) {
         Row(
             modifier = Modifier
@@ -812,9 +802,6 @@ private fun ChatInputBar(
     }
 }
 
-/**
- * Interactive Victorian Scene Inspector with Pinch-to-Zoom, Pan, and Double-Tap reset.
- */
 @Composable
 fun ZoomableImageDialog(
     bitmap: Bitmap,
@@ -835,7 +822,6 @@ fun ZoomableImageDialog(
             modifier = Modifier.fillMaxSize()
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Interactive Zoomable Image Area
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -884,7 +870,6 @@ fun ZoomableImageDialog(
                     )
                 }
 
-                // Top Bar with Controls
                 Surface(
                     color = Color.Black.copy(alpha = 0.6f),
                     modifier = Modifier
@@ -935,7 +920,6 @@ fun ZoomableImageDialog(
                     }
                 }
 
-                // Bottom Zoom Indicator / Caption
                 Surface(
                     color = Color.Black.copy(alpha = 0.7f),
                     modifier = Modifier

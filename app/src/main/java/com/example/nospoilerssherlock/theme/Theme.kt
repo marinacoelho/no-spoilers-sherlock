@@ -1,10 +1,15 @@
 package com.example.nospoilerssherlock.theme
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
 private val DetectiveDarkColorScheme = darkColorScheme(
     primary = VictorianGold,
@@ -40,13 +45,57 @@ private val DetectiveDarkColorScheme = darkColorScheme(
     outlineVariant = Color(0xFF333F54)
 )
 
+private val DetectiveLightColorScheme = lightColorScheme(
+    primary = Color(0xFF6E5D00),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFFFE28B),
+    onPrimaryContainer = Color(0xFF221B00),
+
+    secondary = Color(0xFF3B6082),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFD2E4F9),
+    onSecondaryContainer = Color(0xFF001D33),
+
+    tertiary = CitationGreen,
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFA5F0E4),
+    onTertiaryContainer = Color(0xFF00201C),
+
+    background = Color(0xFFFBF8EE),
+    onBackground = Color(0xFF1B1B18),
+
+    surface = Color(0xFFFBF8EE),
+    onSurface = Color(0xFF1B1B18),
+    surfaceVariant = Color(0xFFE7E2D0),
+    onSurfaceVariant = Color(0xFF49473A),
+
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF5F2E8),
+    surfaceContainer = Color(0xFFEFECE2),
+    surfaceContainerHigh = Color(0xFFE9E6DC),
+    surfaceContainerHighest = Color(0xFFE3E0D6),
+
+    outline = Color(0xFF7A7768),
+    outlineVariant = Color(0xFFC7C7B7)
+)
+
 @Composable
 fun NoSpoilersSherlockTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
+    val context = LocalContext.current
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+        darkTheme -> DetectiveDarkColorScheme
+        else -> DetectiveLightColorScheme
+    }
+
     MaterialTheme(
-        colorScheme = DetectiveDarkColorScheme,
+        colorScheme = colorScheme,
         typography = Typography,
         content = content
     )
