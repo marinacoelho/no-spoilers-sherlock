@@ -10,8 +10,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import android.graphics.Bitmap
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -26,16 +31,27 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,6 +70,7 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsState()
     var inputText by remember { mutableStateOf("") }
     var showBookBottomSheet by remember { mutableStateOf(false) }
+    var previewImage by remember { mutableStateOf<Pair<Bitmap, String?>?>(null) }
     val sheetState = rememberModalBottomSheetState()
     val listState = rememberLazyListState()
 
@@ -138,7 +155,15 @@ fun ChatScreen(
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         items(uiState.messages) { message ->
-                            ModernMessageBubble(message = message)
+                            ModernMessageBubble(
+                                message = message,
+                                onVisualizeScene = { query, chapter ->
+                                    viewModel.visualizeScene(query, chapter)
+                                },
+                                onImageClick = { bitmap, caption ->
+                                    previewImage = Pair(bitmap, caption)
+                                }
+                            )
                         }
                     }
                 }
@@ -260,6 +285,15 @@ fun ChatScreen(
                 }
             }
         }
+    }
+
+    // Full-screen interactive pinch-to-zoom Lightbox dialog
+    previewImage?.let { (bitmap, caption) ->
+        ZoomableImageDialog(
+            bitmap = bitmap,
+            caption = caption,
+            onDismiss = { previewImage = null }
+        )
     }
 }
 
@@ -388,6 +422,7 @@ private fun EmptyChatHero(
             modifier = Modifier.fillMaxWidth()
         ) {
             listOf(
+                "🎨 Visualize the crime scene at Lauriston Gardens in Chapter 3",
                 "In Chapter 3, who was found dead at Lauriston Gardens?",
                 "In Chapter 5, what clue did the wedding ring provide?",
                 "Who is Inspector Lestrade, and what is his theory?"
@@ -422,10 +457,14 @@ private fun EmptyChatHero(
 }
 
 /**
- * Modern Material 3 Message Bubble with Markdown rendering.
+ * Modern Material 3 Message Bubble with Markdown and Nano Banana Scene Illustration rendering.
  */
 @Composable
-fun ModernMessageBubble(message: ChatMessage) {
+fun ModernMessageBubble(
+    message: ChatMessage,
+    onVisualizeScene: ((String, Int?) -> Unit)? = null,
+    onImageClick: ((Bitmap, String?) -> Unit)? = null
+) {
     val isUser = message.sender == MessageSender.USER
     val isSystem = message.sender == MessageSender.SYSTEM
 
@@ -465,7 +504,7 @@ fun ModernMessageBubble(message: ChatMessage) {
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.AutoAwesome,
+                        imageVector = if (message.isSceneVisualization) Icons.Default.Palette else Icons.Default.AutoAwesome,
                         contentDescription = "Sherlock AI",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
@@ -474,19 +513,130 @@ fun ModernMessageBubble(message: ChatMessage) {
                 Spacer(modifier = Modifier.width(8.dp))
             }
 
-            // Message Body Container with Markdown
+            // Message Body Container with Markdown and Image
             Surface(
                 color = bubbleColor,
                 shape = bubbleShape,
-                modifier = Modifier.widthIn(max = 310.dp)
+                modifier = Modifier.widthIn(max = 320.dp)
             ) {
-                Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                    Markdown(
-                        content = message.text,
-                        colors = markdownColor(
-                            text = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.fillMaxWidth()
+                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    // Generated Scene Illustration (Nano Banana) with Tap-to-Zoom
+                    if (message.imageBitmap != null) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                                .clickable {
+                                    onImageClick?.invoke(message.imageBitmap, message.text)
+                                }
+                        ) {
+                            Column {
+                                Box {
+                                    Image(
+                                        bitmap = message.imageBitmap.asImageBitmap(),
+                                        contentDescription = "Scene Illustration (Tap to Zoom)",
+                                        contentScale = ContentScale.FillWidth,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                                    )
+                                    // Zoom Examine Badge
+                                    Surface(
+                                        color = Color.Black.copy(alpha = 0.65f),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.ZoomIn,
+                                                contentDescription = "Zoom",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text(
+                                                text = "Examine",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f))
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Palette,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(12.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Sidney Paget Victorian Style • Nano Banana AI",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (message.text.isNotBlank()) {
+                        Markdown(
+                            content = message.text,
+                            colors = markdownColor(
+                                text = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+        }
+
+        // Action Pill: "Visualize Scene" for Sherlock's textual deductions
+        if (!isUser && !message.isSceneVisualization && message.text != "..." && message.extractedChapter != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Surface(
+                onClick = {
+                    val promptText = "Visualize the scene from Chapter ${message.extractedChapter}"
+                    onVisualizeScene?.invoke(promptText, message.extractedChapter)
+                },
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                modifier = Modifier.padding(start = 40.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Palette,
+                        contentDescription = "Visualize Scene",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = "Visualize Scene (Ch. ${message.extractedChapter})",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -551,11 +701,13 @@ private fun QuickPromptSuggestions(
 ) {
     val prompts = when (selectedBookId) {
         "sign_of_the_four" -> listOf(
+            "🎨 Visualize Chapter 4 crime scene",
             "In Chapter 2, who is Miss Morstan?",
             "In Chapter 4, who was found dead?",
             "What clue was left behind?"
         )
         else -> listOf(
+            "🎨 Visualize Lauriston Gardens in Chapter 3",
             "In Chapter 3, who died?",
             "In Chapter 5, what clue was found?",
             "Who is Inspector Lestrade?"
@@ -655,6 +807,166 @@ private fun ChatInputBar(
                     contentDescription = "Send",
                     modifier = Modifier.size(20.dp)
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Interactive Victorian Scene Inspector with Pinch-to-Zoom, Pan, and Double-Tap reset.
+ */
+@Composable
+fun ZoomableImageDialog(
+    bitmap: Bitmap,
+    caption: String?,
+    onDismiss: () -> Unit
+) {
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Surface(
+            color = Color.Black.copy(alpha = 0.94f),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Interactive Zoomable Image Area
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(1f, 5f)
+                                if (scale > 1f) {
+                                    val maxOffsetX = (size.width * (scale - 1f)) / 2f
+                                    val maxOffsetY = (size.height * (scale - 1f)) / 2f
+                                    offset = Offset(
+                                        x = (offset.x + pan.x).coerceIn(-maxOffsetX, maxOffsetX),
+                                        y = (offset.y + pan.y).coerceIn(-maxOffsetY, maxOffsetY)
+                                    )
+                                } else {
+                                    offset = Offset.Zero
+                                }
+                            }
+                        }
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    if (scale > 1f) {
+                                        scale = 1f
+                                        offset = Offset.Zero
+                                    } else {
+                                        scale = 2.5f
+                                    }
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = "Zoomed Scene Illustration",
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = offset.x
+                                translationY = offset.y
+                            }
+                    )
+                }
+
+                // Top Bar with Controls
+                Surface(
+                    color = Color.Black.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "🔍 Scene Investigation",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Pinch to zoom • Double-tap to toggle zoom • Drag to pan",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.LightGray
+                            )
+                        }
+
+                        if (scale > 1f) {
+                            IconButton(onClick = {
+                                scale = 1f
+                                offset = Offset.Zero
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.RestartAlt,
+                                    contentDescription = "Reset Zoom",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+
+                        IconButton(onClick = onDismiss) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.White
+                            )
+                        }
+                    }
+                }
+
+                // Bottom Zoom Indicator / Caption
+                Surface(
+                    color = Color.Black.copy(alpha = 0.7f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(horizontal = 20.dp, vertical = 12.dp)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Zoom: ${"%.1f".format(scale)}x",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        if (!caption.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = caption.take(120),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.LightGray,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
             }
         }
     }

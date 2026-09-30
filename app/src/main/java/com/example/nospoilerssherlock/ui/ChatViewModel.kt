@@ -93,6 +93,11 @@ class ChatViewModel(
         val extractedChapter = SpoilerGuardManager.extractChapterFromPrompt(userText)
             ?: _uiState.value.defaultChapter
 
+        if (SpoilerGuardManager.isVisualizationRequest(userText)) {
+            visualizeScene(userText, extractedChapter)
+            return
+        }
+
         val userMessage = ChatMessage(
             sender = MessageSender.USER,
             text = userText,
@@ -139,20 +144,72 @@ class ChatViewModel(
                 _uiState.value = _uiState.value.copy(
                     messages = _uiState.value.messages + noSpoilerAnswer
                 )
-
-//                aiService.generateContentStream(fullPrompt)
-//                    .collect { partialText ->
-//                        val currentList = _uiState.value.messages.toMutableList()
-//                        val lastIdx = currentList.lastIndex
-//                        if (lastIdx >= 0 && currentList[lastIdx].sender == MessageSender.AI) {
-//                            currentList[lastIdx] = currentList[lastIdx].copy(text = partialText)
-//                            _uiState.value = _uiState.value.copy(messages = currentList)
-//                        }
-//                    }
             } catch (e: Exception) {
                 val errorMessage = ChatMessage(
                     sender = MessageSender.SYSTEM,
                     text = "⚠️ Unable to query book context. Ensure you have chapter content loaded."
+                )
+                _uiState.value = _uiState.value.copy(
+                    messages = _uiState.value.messages + errorMessage
+                )
+            } finally {
+                _uiState.value = _uiState.value.copy(isLoading = false, statusMessage = null)
+            }
+        }
+    }
+
+    /**
+     * Generates a spoiler-bounded scene illustration using Nano Banana via Firebase AI Logic.
+     */
+    fun visualizeScene(sceneQuery: String, targetChapter: Int? = null) {
+        val activeBook = _uiState.value.selectedBook ?: return
+        val chapter = targetChapter
+            ?: SpoilerGuardManager.extractChapterFromPrompt(sceneQuery)
+            ?: _uiState.value.lastDetectedChapter
+            ?: _uiState.value.defaultChapter
+
+        val userMessage = ChatMessage(
+            sender = MessageSender.USER,
+            text = sceneQuery,
+            extractedChapter = chapter
+        )
+
+        _uiState.value = _uiState.value.copy(
+            messages = _uiState.value.messages + userMessage,
+            isLoading = true,
+            lastDetectedChapter = chapter,
+            statusMessage = "🎨 Sherlock is illustrating the scene with Nano Banana AI (Chapter $chapter)..."
+        )
+
+        viewModelScope.launch {
+            try {
+                val allowedChunks = firestoreRepository.getSpoilerBoundedChunks(activeBook.id, chapter)
+
+                val visualPrompt = SpoilerGuardManager.buildSceneVisualizationPrompt(
+                    bookTitle = activeBook.title,
+                    targetChapter = chapter,
+                    userQuery = sceneQuery,
+                    retrievedChunks = allowedChunks
+                )
+
+                val (caption, bitmap) = aiService.generateSceneIllustration(visualPrompt)
+
+                val illustrationMessage = ChatMessage(
+                    sender = MessageSender.AI,
+                    text = if (caption.isNotBlank()) caption else "🎨 *Scene Illustration (Chapter $chapter - Sidney Paget Victorian style)*",
+                    extractedChapter = chapter,
+                    citedChapters = allowedChunks.map { it.chapterOrder }.distinct(),
+                    imageBitmap = bitmap,
+                    isSceneVisualization = true
+                )
+
+                _uiState.value = _uiState.value.copy(
+                    messages = _uiState.value.messages + illustrationMessage
+                )
+            } catch (e: Exception) {
+                val errorMessage = ChatMessage(
+                    sender = MessageSender.SYSTEM,
+                    text = "⚠️ Unable to generate scene visualization: ${e.localizedMessage ?: "Unknown error"}"
                 )
                 _uiState.value = _uiState.value.copy(
                     messages = _uiState.value.messages + errorMessage

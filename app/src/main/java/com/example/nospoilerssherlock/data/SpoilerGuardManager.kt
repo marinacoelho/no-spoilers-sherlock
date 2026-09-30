@@ -66,4 +66,54 @@ object SpoilerGuardManager {
             Sherlock's Direct Answer (ZERO SPOILERS beyond Chapter $targetChapter! Do not list chapters):
         """.trimIndent()
     }
+
+    /**
+     * Checks if user prompt is requesting to visualize, illustrate, or depict a scene.
+     */
+    fun isVisualizationRequest(prompt: String): Boolean {
+        val lower = prompt.lowercase()
+        val visualKeywords = listOf(
+            "visualize", "visualise", "illustrate", "draw",
+            "sketch", "picture", "show me the scene", "generate an image",
+            "generate image", "scene of", "depict", "portrait of"
+        )
+        return visualKeywords.any { lower.contains(it) }
+    }
+
+    /**
+     * Constructs a prompt for Nano Banana image generation with strict spoiler guardrails.
+     * Enforces Victorian pen-and-ink engraving aesthetic (Sidney Paget Strand Magazine style).
+     */
+    fun buildSceneVisualizationPrompt(
+        bookTitle: String,
+        targetChapter: Int,
+        userQuery: String,
+        retrievedChunks: List<Chunk>
+    ): String {
+        val contextText = if (retrievedChunks.isEmpty()) {
+            "No prior chapter excerpts found."
+        } else {
+            retrievedChunks.joinToString("\n") { chunk ->
+                val cleanContent = chunk.content
+                    .replace(Regex("""^Summary of Chapter \d+ \([^)]+\):\s*"""), "")
+                    .trim()
+                "- Chapter ${chunk.chapterOrder}: $cleanContent"
+            }
+        }
+
+        return """
+            Generate an atmospheric, historical period illustration in the style of classic Victorian 19th-century pen-and-ink engraving and etching, reminiscent of Sidney Paget's original illustrations for Sherlock Holmes in The Strand Magazine.
+            
+            STRICT SPOILER GUARDBOUND:
+            - You MUST ONLY depict characters, settings, and clues known strictly up to CHAPTER $targetChapter of "$bookTitle".
+            - ABSOLUTELY DO NOT depict or hint at any murderer identity, hidden culprit, future clue, or plot twist that occurs after Chapter $targetChapter.
+            - Period accuracy: 1880s Victorian London, gas lamps, cobblestones, London pea-soup fog, authentic period clothing and architecture.
+            
+            Scene requested by reader:
+            "$userQuery"
+            
+            Known context up to Chapter $targetChapter:
+            $contextText
+        """.trimIndent()
+    }
 }

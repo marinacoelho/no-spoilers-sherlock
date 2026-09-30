@@ -1,5 +1,7 @@
 package com.example.nospoilerssherlock.data.models
 
+import android.graphics.Bitmap
+
 data class Book(
     val id: String = "",
     val universeId: String = "",
@@ -37,5 +39,7 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis(),
     val extractedChapter: Int? = null,
     val citedChapters: List<Int> = emptyList(),
-    val isOfflineMode: Boolean = false
+    val isOfflineMode: Boolean = false,
+    val imageBitmap: Bitmap? = null,
+    val isSceneVisualization: Boolean = false
 )
