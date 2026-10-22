@@ -1,0 +1,13 @@
+---
+description: Firebase Cloud Infrastructure & Security Rules
+globs: firebase/**
+---
+# Rules for firebase/**
+
+- **Lead Specialist**: `@firebase-architect`
+- **Domain Skills**: firebase-basics, firebase-firestore, firestore-rules-creation, firebase-security-rules-auditor
+- **Verification Command**: `firebase emulators:exec --only firestore "npm test"`
+
+When editing files matching `firebase/**`:
+1. Adhere strictly to the domain skills and architectural patterns declared above.
+2. Run `firebase emulators:exec --only firestore "npm test"` to verify changes before marking work as complete.

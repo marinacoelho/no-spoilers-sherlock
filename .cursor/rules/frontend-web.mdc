@@ -1,0 +1,13 @@
+---
+description: Modern Web Application
+globs: frontend/web/**
+---
+# Rules for frontend/web/**
+
+- **Lead Specialist**: `@web-engineer`
+- **Domain Skills**: react-server-components
+- **Verification Command**: `npm --prefix frontend/web test`
+
+When editing files matching `frontend/web/**`:
+1. Adhere strictly to the domain skills and architectural patterns declared above.
+2. Run `npm --prefix frontend/web test` to verify changes before marking work as complete.

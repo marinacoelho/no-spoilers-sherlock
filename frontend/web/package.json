@@ -1,0 +1,13 @@
+{
+  "name": "no-spoilers-sherlock",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/test/*.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0",
+    "@types/node": "^22.0.0"
+  }
+}

@@ -1,0 +1,13 @@
+---
+description: Native Android Application
+globs: frontend/android/**
+---
+# Rules for frontend/android/**
+
+- **Lead Specialist**: `@android-engineer`
+- **Domain Skills**: android-compose
+- **Verification Command**: `(cd frontend/android && ./gradlew test)`
+
+When editing files matching `frontend/android/**`:
+1. Adhere strictly to the domain skills and architectural patterns declared above.
+2. Run `(cd frontend/android && ./gradlew test)` to verify changes before marking work as complete.
