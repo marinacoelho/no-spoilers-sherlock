@@ -1,0 +1,6 @@
+{
+  "id": "web-playwright-e2e",
+  "source": "offline_fallback",
+  "repository": "microsoft/playwright",
+  "resolvedAt": "2026-10-21T18:14:37.550Z"
+}

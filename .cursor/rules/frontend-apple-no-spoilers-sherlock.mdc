@@ -1,0 +1,13 @@
+---
+description: Native Apple Application
+globs: frontend/apple/no-spoilers-sherlock/**
+---
+# Rules for frontend/apple/no-spoilers-sherlock/**
+
+- **Lead Specialist**: `@ios-engineer`
+- **Domain Skills**: swiftui-modern
+- **Verification Command**: `flowdeck test -w frontend/apple/no-spoilers-sherlock.xcodeproj -s no-spoilers-sherlock`
+
+When editing files matching `frontend/apple/no-spoilers-sherlock/**`:
+1. Adhere strictly to the domain skills and architectural patterns declared above.
+2. Run `flowdeck test -w frontend/apple/no-spoilers-sherlock.xcodeproj -s no-spoilers-sherlock` to verify changes before marking work as complete.

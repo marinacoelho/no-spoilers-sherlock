@@ -1,0 +1,13 @@
+---
+description: TypeScript CLI & MCP Server
+globs: backend/cli/**
+---
+# Rules for backend/cli/**
+
+- **Lead Specialist**: `@mcp-architect`
+- **Domain Skills**: cli-standards-and-ux, mcp-server-architecture
+- **Verification Command**: `npm --prefix backend/cli test`
+
+When editing files matching `backend/cli/**`:
+1. Adhere strictly to the domain skills and architectural patterns declared above.
+2. Run `npm --prefix backend/cli test` to verify changes before marking work as complete.

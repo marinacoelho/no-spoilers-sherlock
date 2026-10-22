@@ -1,0 +1,111 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "chief-of-staff",
+  "worktree": {
+    "directory": ".fleet/worktrees"
+  },
+  "skills": [
+    ".fleet/skills",
+    ".agents/skills"
+  ],
+  "agents": {
+    "build": {
+      "disabled": true
+    },
+    "plan": {
+      "disabled": true
+    },
+    "adversarial-tester": {
+      "name": "adversarial-tester",
+      "description": "adversarial-tester",
+      "mode": "subagent"
+    },
+    "chief-of-staff": {
+      "name": "Chief of Staff",
+      "description": "FleetKit Master Orchestrator for no-spoilers-sherlock",
+      "mode": "primary",
+      "permissions": [
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        }
+      ]
+    },
+    "code-reviewer": {
+      "name": "code-reviewer",
+      "description": "code-reviewer",
+      "mode": "subagent"
+    },
+    "journal-agent": {
+      "name": "journal-agent",
+      "description": "journal-agent",
+      "mode": "subagent"
+    },
+    "learnings-agent": {
+      "name": "learnings-agent",
+      "description": "learnings-agent",
+      "mode": "subagent"
+    },
+    "product-manager": {
+      "name": "product-manager",
+      "description": "product-manager",
+      "mode": "subagent"
+    },
+    "senior-architect": {
+      "name": "senior-architect",
+      "description": "senior-architect",
+      "mode": "subagent"
+    },
+    "apple-qa": {
+      "name": "apple-qa",
+      "description": "apple-qa",
+      "mode": "subagent"
+    },
+    "ios-engineer": {
+      "name": "ios-engineer",
+      "description": "ios-engineer",
+      "mode": "subagent"
+    },
+    "docc-specialist": {
+      "name": "docc-specialist",
+      "description": "docc-specialist",
+      "mode": "subagent"
+    },
+    "swift-sdk-architect": {
+      "name": "swift-sdk-architect",
+      "description": "swift-sdk-architect",
+      "mode": "subagent"
+    },
+    "swift-systems-engineer": {
+      "name": "swift-systems-engineer",
+      "description": "swift-systems-engineer",
+      "mode": "subagent"
+    },
+    "android-engineer": {
+      "name": "android-engineer",
+      "description": "android-engineer",
+      "mode": "subagent"
+    },
+    "web-engineer": {
+      "name": "web-engineer",
+      "description": "web-engineer",
+      "mode": "subagent"
+    },
+    "cli-engineer": {
+      "name": "cli-engineer",
+      "description": "cli-engineer",
+      "mode": "subagent"
+    },
+    "mcp-architect": {
+      "name": "mcp-architect",
+      "description": "mcp-architect",
+      "mode": "subagent"
+    },
+    "firebase-architect": {
+      "name": "firebase-architect",
+      "description": "firebase-architect",
+      "mode": "subagent"
+    }
+  }
+}

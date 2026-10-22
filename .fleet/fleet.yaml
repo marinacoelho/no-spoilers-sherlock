@@ -1,0 +1,106 @@
+version: 1
+name: no-spoilers-sherlock
+orchestrator:
+  agent: agents/chief-of-staff.md
+  strategy: hierarchical
+default:
+  owners:
+    lead: agents/chief-of-staff.md
+    reviewers:
+      - agents/code-reviewer.md
+  tools: []
+  skills: []
+  rules: []
+  verification: {}
+tools:
+  - flowdeck
+  - simctl
+  - swift-docc
+  - swift-test
+  - playwright
+  - firebase
+features:
+  critics: true
+  adversarial-qa: true
+  human-in-the-loop: true
+  reconciler: false
+  firebase: true
+hierarchy:
+  - path: frontend/apple/no-spoilers-sherlock/**
+    description: Native Apple Application
+    pack: "@fleetkit/apple-app"
+    owners:
+      lead: agents/ios-engineer.md
+      reviewers:
+        - agents/code-reviewer.md
+    tools: []
+    skills:
+      - swiftui-modern
+    rules:
+      - apple-hig-guidelines
+    verification:
+      build: flowdeck build -w frontend/apple/no-spoilers-sherlock.xcodeproj -s
+        no-spoilers-sherlock
+      test: flowdeck test -w frontend/apple/no-spoilers-sherlock.xcodeproj -s
+        no-spoilers-sherlock
+  - path: frontend/apple/Packages/AppCore/**
+    description: Local SPM Shared Logic
+    pack: "@fleetkit/swift-package"
+    owners:
+      lead: agents/swift-sdk-architect.md
+      reviewers:
+        - agents/code-reviewer.md
+    tools: []
+    skills:
+      - swift-6-concurrency
+    rules: []
+    verification:
+      test: swift test --package-path frontend/apple/Packages/AppCore
+  - path: frontend/android/**
+    description: Native Android Application
+    pack: "@fleetkit/android-app"
+    owners:
+      lead: agents/android-engineer.md
+      reviewers:
+        - agents/code-reviewer.md
+    tools: []
+    skills:
+      - android-compose
+    rules:
+      - udf-architecture
+    verification:
+      build: (cd frontend/android && ./gradlew assembleDebug)
+      test: (cd frontend/android && ./gradlew test)
+  - path: frontend/web/**
+    description: Modern Web Application
+    pack: "@fleetkit/web-modern"
+    owners:
+      lead: agents/web-engineer.md
+      reviewers:
+        - agents/code-reviewer.md
+    tools: []
+    skills:
+      - react-server-components
+    rules:
+      - wcag-2.2-compliance
+    verification:
+      test: npm --prefix frontend/web test
+  - path: backend/cli/**
+    description: TypeScript CLI & MCP Server
+    pack: "@fleetkit/cli-mcp"
+    owners:
+      lead: agents/mcp-architect.md
+      reviewers:
+        - agents/code-reviewer.md
+    tools: []
+    skills:
+      - cli-standards-and-ux
+      - mcp-server-architecture
+    rules: []
+    verification:
+      build: npm --prefix backend/cli run build
+      test: npm --prefix backend/cli test
+shared:
+  docs: docs/
+  specs: docs/specs/
+  architecture: docs/architecture/

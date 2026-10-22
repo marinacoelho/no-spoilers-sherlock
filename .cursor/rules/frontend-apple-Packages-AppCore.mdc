@@ -1,0 +1,13 @@
+---
+description: Local SPM Shared Logic
+globs: frontend/apple/Packages/AppCore/**
+---
+# Rules for frontend/apple/Packages/AppCore/**
+
+- **Lead Specialist**: `@swift-sdk-architect`
+- **Domain Skills**: swift-6-concurrency
+- **Verification Command**: `swift test --package-path frontend/apple/Packages/AppCore`
+
+When editing files matching `frontend/apple/Packages/AppCore/**`:
+1. Adhere strictly to the domain skills and architectural patterns declared above.
+2. Run `swift test --package-path frontend/apple/Packages/AppCore` to verify changes before marking work as complete.
